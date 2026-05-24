@@ -29,9 +29,6 @@ class Settings(BaseSettings):
     SECTOR_EXPOSURE_LIMIT: float = 0.30
     LIQUIDITY_LCR_MINIMUM: float = 0.80
 
-    # DeepSeek API 配置
-    DEEPSEEK_API_KEY: str = ""
-
     # 数据源配置
     KLINE_PRIMARY_SOURCE: str = "tencent"  # OHLCV主数据源: tencent/eastmoney
     KLINE_FALLBACK_SOURCE: str = "eastmoney"  # OHLCV备选数据源

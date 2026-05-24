@@ -1,0 +1,2 @@
+<template><article class="card"><div class="card-header"><h3 class="card-title">风险告警时间线</h3></div><div class="list"><div v-for="alert in alerts" :key="alert.title + alert.time" class="list-row"><div class="row-between"><strong>{{ alert.title }}</strong><span class="badge" :class="alert.level">{{ alert.level }}</span></div><p class="muted">{{ alert.description }}</p><span class="soft">{{ alert.time }}</span></div></div></article></template>
+<script setup>defineProps({ alerts: { type: Array, required: true } })</script>

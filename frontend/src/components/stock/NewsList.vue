@@ -1,0 +1,2 @@
+<template><article class="card"><div class="card-header"><h3 class="card-title">实时新闻</h3></div><div class="list"><div v-for="item in news" :key="item.title" class="list-row"><div class="row-between"><strong>{{ item.title }}</strong><span class="badge" :class="item.sentiment === 'negative' ? 'high' : item.sentiment === 'positive' ? 'low' : ''">{{ item.sentiment }}</span></div><div class="soft">{{ item.source }} · {{ item.time }} · {{ item.impact }}</div></div></div></article></template>
+<script setup>defineProps({ news: { type: Array, required: true } })</script>

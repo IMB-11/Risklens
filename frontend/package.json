@@ -1,7 +1,7 @@
 {
-  "name": "financial-sentiment-frontend",
+  "name": "ai-risk-terminal",
   "version": "1.0.0",
-  "description": "Financial Sentiment Analyzer Frontend",
+  "description": "AI financial risk control terminal for hackathon demos",
   "main": "index.js",
   "scripts": {
     "dev": "vite",
@@ -9,8 +9,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "vue": "^3.4.21",
     "axios": "^1.6.7",
+    "echarts": "^5.5.1",
+    "lucide-vue-next": "^0.468.0",
+    "vue": "^3.4.21",
     "vue-router": "^4.3.0"
   },
   "devDependencies": {

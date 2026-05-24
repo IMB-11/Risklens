@@ -1,0 +1,30 @@
+.card {
+  border: 1px solid var(--border-subtle); border-radius: 16px; background: var(--bg-card);
+  box-shadow: var(--shadow-card); padding: 16px; min-width: 0;
+}
+.card-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; }
+.card-title { margin: 0; font-size: 15px; font-weight: 750; }
+.metric-value { font-size: 32px; font-weight: 800; line-height: 1; }
+.metric-label { color: var(--text-muted); font-size: 13px; margin-top: 8px; }
+.badge {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 26px; padding: 0 10px; border-radius: 999px;
+  color: var(--text-main); background: rgba(148, 163, 184, 0.12); border: 1px solid var(--border-subtle); font-size: 12px; white-space: nowrap;
+}
+.badge.low { color: var(--risk-low); border-color: rgba(34, 197, 94, 0.26); background: rgba(34, 197, 94, 0.1); }
+.badge.medium { color: var(--risk-medium); border-color: rgba(245, 158, 11, 0.28); background: rgba(245, 158, 11, 0.1); }
+.badge.high { color: var(--risk-high); border-color: rgba(239, 68, 68, 0.28); background: rgba(239, 68, 68, 0.1); }
+.kpi-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.kpi { padding: 12px; border: 1px solid var(--border-subtle); border-radius: 12px; background: var(--bg-card-soft); }
+.kpi strong { display: block; font-size: 18px; margin-top: 6px; }
+.list { display: grid; gap: 10px; }
+.list-row { padding: 12px; border: 1px solid var(--border-subtle); border-radius: 12px; background: var(--bg-card-soft); }
+.row-between { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+.table { width: 100%; border-collapse: collapse; }
+.table th, .table td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border-subtle); color: var(--text-muted); }
+.table th { color: var(--text-soft); font-size: 12px; font-weight: 650; }
+.overlay {
+  position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; background: rgba(7, 11, 18, 0.72); backdrop-filter: blur(10px);
+}
+.progress-card { width: min(520px, 92vw); }
+.progress-step { display: flex; align-items: center; gap: 10px; padding: 10px 0; color: var(--text-muted); }
+.progress-step.active { color: var(--text-main); }

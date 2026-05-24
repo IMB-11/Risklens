@@ -1,0 +1,2 @@
+<template><article class="card"><div class="row-between"><div><h2 style="margin:0 0 8px;">{{ report.summary.title }}</h2><div class="muted">{{ report.stock.name }} · {{ report.stock.riskProfile }} · {{ report.stock.updatedAt }}</div></div><span class="badge" :class="report.summary.riskLevel">{{ report.summary.riskLabel }}</span></div></article></template>
+<script setup>defineProps({ report: { type: Object, required: true } })</script>

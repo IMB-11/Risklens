@@ -1,0 +1,2 @@
+<template><article class="card"><div class="card-header"><h3 class="card-title">报告告警摘要</h3></div><div class="list"><div v-for="alert in alerts" :key="alert.title" class="list-row"><strong>{{ alert.title || alert.message }}</strong><p class="muted">{{ alert.description || alert.detail || alert.message }}</p></div><div v-if="!alerts.length" class="muted">当前报告没有新增告警。</div></div></article></template>
+<script setup>defineProps({ alerts: { type: Array, default: () => [] } })</script>

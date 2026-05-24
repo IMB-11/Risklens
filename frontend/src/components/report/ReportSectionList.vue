@@ -1,0 +1,2 @@
+<template><article class="card"><div class="card-header"><h3 class="card-title">报告章节</h3></div><div class="list"><section v-for="section in sections" :key="section.title" class="list-row"><strong>{{ section.title }}</strong><ul class="muted"><li v-for="item in section.content" :key="item">{{ item }}</li></ul></section></div></article></template>
+<script setup>defineProps({ sections: { type: Array, required: true } })</script>

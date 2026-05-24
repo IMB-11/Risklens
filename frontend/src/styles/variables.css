@@ -1,0 +1,18 @@
+:root {
+  --bg-main: #070b12;
+  --bg-panel: #111827;
+  --bg-card: #151b2d;
+  --bg-card-soft: #101624;
+  --border-subtle: rgba(148, 163, 184, 0.16);
+  --text-main: #e5e7eb;
+  --text-muted: #94a3b8;
+  --text-soft: #64748b;
+  --primary: #38bdf8;
+  --primary-dark: #2563eb;
+  --ai-purple: #a78bfa;
+  --risk-low: #22c55e;
+  --risk-medium: #f59e0b;
+  --risk-high: #ef4444;
+  --shadow-card: 0 14px 40px rgba(0, 0, 0, 0.28);
+  color-scheme: dark;
+}

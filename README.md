@@ -1,127 +1,157 @@
-中文 | [English](README_en.md)
+# AI Risk Terminal
 
-# RiskLens — 智能金融风控系统
+AI Risk Terminal 是一个黑客松 Demo 项目：FastAPI 后端提供金融舆情、风险评分、多模型预测、组合风控和 AI 风控报告能力；Vue 3 + Vite 前端提供深色金融终端工作台。
 
-> 让每一个投资决策都有数据撑腰。
-
-RiskLens 是一个面向 A 股市场的 AI 风控助手。它像一个**永不休息的分析师**，24 小时盯着全网财经资讯、另类数据和市场行情，实时帮你判断"这只股票现在安不安全"。
-
-**轻量部署，开箱即用。**
-核心风控引擎本地运行，AI 叙事生成接入 DeepSeek API，低成本享受大模型能力。只需一个 API Key 即可启动。
-
----
-
-## 核心功能
-
-### 全网舆情自动洞察
-
-自动抓取 15+ 国内财经信息源和龙虎榜、融资融券、搜索热度等另类数据，AI 自动过滤噪音、识别关键信号。你不需要翻遍全网，系统帮你把"值得看的"挑出来。
-
-### 智能风险评分引擎
-
-六大维度（情绪、趋势、波动、事件、不确定性、市场状态）联合打分，输出一个直观的 0-100 风险分。不用盯盘，一个数字告诉你该紧张还是安心。
-
-### 自适应市场感知
-
-系统能自动判断当前处于牛市、熊市、震荡还是高波动，并动态调整分析策略。牛市多听市场情绪，熊市紧盯技术信号——像一个有经验的交易员一样灵活切换视角。
-
-### AI 风控叙述生成
-
-看不懂量化指标没关系。系统通过 DeepSeek API 自动生成自然语言风控报告：
-
-> "当前负面舆情集中，建议降低仓位。"
-
-把数据翻译成人话——**一个 API Key，无限生成。**
-
-### 压力测试与情景模拟
-
-想知道"如果大盘跌 20% 会怎样"？一键模拟 2015 股灾、2020 疫情等历史极端场景，提前知道你的仓位能不能扛得住。
-
-### 异常交易预警
-
-自动识别对敲、异常换手、内幕交易等可疑行为，合规风险早发现早处理。
-
----
-
-## 快速开始
-
-### 1. 克隆项目
-
-```bash
-git clone https://github.com/IMB-11/Risklens.git
-cd Risklens
-```
-
-### 2. 安装依赖
-
-```bash
-pip install -r requirements.txt
-```
-
-### 3. 配置 API Key
-
-复制环境变量模板并填入你的 DeepSeek API Key（从 https://platform.deepseek.com 获取）：
-
-```bash
-cp .env.example .env
-# 编辑 .env，填入 DEEPSEEK_API_KEY=sk-xxx
-```
-
-### 4. 启动服务
-
-```bash
-python -m backend.api.main
-```
-
-服务启动后访问 `http://localhost:8000` 查看 API 文档。
-
----
-
-## API 接口一览
-
-| 接口 | 说明 |
-|------|------|
-| `POST /api/risk/assess` | 核心风控评估（输入股票名，输出风险分 + 建议） |
-| `POST /api/action` | 风控动作建议（兼容旧版接口） |
-| `POST /api/multi-model/predict` | 多模型综合预测（7 天趋势 + 买卖建议） |
-| `POST /api/risk/portfolio` | 组合风控（多标的、协方差、暴露分析） |
-| `POST /api/risk/stress-test` | 压力测试（历史情景 + 自定义冲击） |
-| `POST /api/risk/anomaly-detect` | 异常交易检测 |
-| `POST /api/risk/alternative-data` | 另类数据查询（龙虎榜/融资融券/搜索热度） |
-| `POST /api/news` | 实时新闻抓取 |
-| `WS /ws/realtime` | WebSocket 实时新闻推送 |
-
----
+本项目仅用于黑客松演示和工程学习，不构成任何投资建议。
 
 ## 技术栈
 
-- **后端：** Python + FastAPI
-- **前端：** Vue 3 + Vite
-- **AI 模型：** PyTorch + Hugging Face Transformers（本地推理）+ DeepSeek API（风控叙述）
-- **数据源：** AKShare + SerpApi + Tavily + 多站爬虫
-- **实时通信：** WebSocket
+- Backend: FastAPI, Python, Uvicorn, Pydantic, pandas/numpy/scikit-learn/torch/transformers 等
+- Frontend: Vue 3, Vite, vue-router, axios, echarts, lucide-vue-next
+- External Search: SerpAPI, Tavily
 
----
+## 目录结构
 
-## 项目结构
-
-```
-RiskLens/
-├── backend/
-│   ├── api/            # FastAPI 路由与接口
-│   ├── crawler/        # 多源新闻爬虫（15+ 数据源）
-│   ├── analysis/       # 因果发现、自适应权重、信号关联
-│   ├── engine/         # 多模型协调、推理引擎、输出增强
-│   ├── risk/           # 风控核心（VaR/CVaR、压力测试、异常检测）
-│   ├── data/           # 行情数据、股票解析、风险数据供给
-│   └── alt_data/       # 国内另类数据引擎（13 个数据源）
-├── frontend/           # Vue 3 前端
-├── config/             # 全局配置
-└── risk_sklearn/       # 轻量级融合模型
+```text
+backend/api/main.py        FastAPI 入口
+frontend/                  Vue 3 + Vite 前端
+config/ model/ dataset/    模型与数据相关目录
+risk_sklearn/              风控小模型相关目录
+requirements.txt           后端依赖
+start_backend.bat          后端启动脚本
+start_frontend.bat         前端启动脚本
+start_all.bat              Windows 一键启动
 ```
 
----
+## 环境要求
 
-## License
+- Python 3.10+ 推荐
+- Node.js 18+ 推荐
+- npm 9+ 推荐
 
-MIT License
+## 外部检索服务配置
+
+SerpAPI 注册网址：
+https://serpapi.com/
+
+Tavily 注册网址：
+https://tavily.com/
+
+复制 `.env.example` 为 `.env`，按需填写：
+
+```env
+SERPAPI_API_KEY=你的 SerpAPI Key
+SERP_API_KEY=你的 SerpAPI Key
+TAVILY_API_KEY=你的 Tavily API Key
+RISK_ENABLE_EXTERNAL_CRAWL=false
+```
+
+如果不配置 Key：
+
+- 后端仍可启动。
+- 前端仍可进入演示模式。
+- 新闻、搜索、实时外部信息可能使用 fallback 数据。
+- 路演 Demo 不会因为缺少 Key 白屏或崩溃。
+
+`RISK_ENABLE_EXTERNAL_CRAWL=false` 是推荐的路演默认值：后端仍提供真实健康检查、风控、组合和报告接口，但外部新闻抓取会降级，避免免费源或本机爬虫依赖导致现场不稳定。需要真实联网抓取时再改为 `true`。
+
+前端的“系统状态”页也预留了 API Key 输入框。黑客松本地演示阶段会保存到浏览器 localStorage，并通过请求 Header 发送给后端；生产环境不建议这样保存敏感 Key。
+
+## 后端启动
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn backend.api.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+健康检查：
+
+```text
+http://127.0.0.1:8000/api/health
+```
+
+## 前端启动
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+打开：
+
+```text
+http://127.0.0.1:5173
+```
+
+Vite 已配置代理：
+
+- `/api` -> `http://127.0.0.1:8000`
+- `/ws` -> `ws://127.0.0.1:8000`
+
+## 一键启动
+
+Windows 双击或运行：
+
+```bat
+start_all.bat
+```
+
+也可以分别运行：
+
+```bat
+start_backend.bat
+start_frontend.bat
+```
+
+## Demo 演示流程
+
+1. 打开前端 `http://127.0.0.1:5173`。
+2. 默认进入 `NVDA` 单股票风控分析页。
+3. 点击 `Analyze`。
+4. 查看风险评分、AI 投资建议、未来 7 天预测、VaR/CVaR、舆情、新闻与告警。
+5. 切换到“组合风控”查看默认组合 `NVDA/AAPL/MSFT/TSLA`。
+6. 切换到“AI 风控报告”查看 LLM/Qwen/FinanceLM 风险报告。
+7. 切换到“系统状态”填写自己的 SerpAPI / Tavily API Key。
+
+## 真实 API 与演示模式
+
+前端默认优先请求真实 FastAPI 接口。后端没启动、接口超时、返回为空或用户打开右上角“演示模式”时，前端自动使用稳定演示数据，页面不会白屏。
+
+UI 中不会显示 mock/fake/假数据等字样，只会显示“演示模式”“数据已更新”“外部检索未配置，可继续使用演示模式”等产品状态。
+
+## AI 风控报告模块
+
+报告页优先读取：
+
+```text
+GET /api/risk/report/{stock_name}?risk_level=moderate&limit=20
+```
+
+后端返回 `narrative` 时显示 LLM 正文；若 Qwen/LLM 不可用或正文为空，前端会根据风险评分、VaR/CVaR、模型融合、风险驱动和风控动作自动拼接结构化报告。
+
+报告页支持：
+
+- 复制报告
+- 下载 Markdown
+- 下载 JSON
+
+## 常见问题
+
+端口被占用：修改 `frontend/vite.config.js` 的 Vite 端口，或停止占用 `8000/5173` 的进程。
+
+`npm install` 失败：确认 Node.js 18+ 和 npm 可用，必要时清理 npm 缓存后重试。
+
+`pip install` 失败：建议使用 Python 3.10+，并确认网络可访问 PyPI。部分 ML 依赖较大，首次安装可能较慢。
+
+大模型文件缺失：系统应降级到 fallback / demo 能力，后端健康状态可能显示 degraded，但前端仍可演示。
+
+SerpAPI / Tavily Key 缺失：外部检索能力会降级，前端仍可演示。
+
+CORS / proxy 问题：开发环境请从 `http://127.0.0.1:5173` 访问前端，由 Vite proxy 转发 `/api` 和 `/ws`。
+
+## 免责声明
+
+本系统仅用于黑客松 Demo。所有风险评分、预测、报告和投资动作建议仅供技术演示，不构成投资建议或交易依据。

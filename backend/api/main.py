@@ -1,10 +1,13 @@
-﻿from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+﻿from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 import asyncio
 import hashlib
 import os
+from dotenv import load_dotenv
+load_dotenv()
+
 from backend.engine.financial_action_trainer import AdvancedFinancialSentimentTrainer
 from backend.engine.inference_engine import get_inference_and_prediction
 from backend.engine.multi_model_coordinator import get_multi_model_prediction
@@ -104,6 +107,11 @@ class AlternativeDataRiskQuery(BaseModel):
     stock_name: str
     data_types: Optional[List[str]] = None
 
+
+class ApiKeyConfig(BaseModel):
+    serpapi_api_key: Optional[str] = None
+    tavily_api_key: Optional[str] = None
+
 # ==================== 股票代码映射 ====================
 
 stock_code_mapping = dict(STOCK_CODE_MAPPING)
@@ -131,6 +139,7 @@ connection_lock = asyncio.Lock()
 # 实时新闻推送任务（后台运行）
 push_task = None
 push_interval = max(5, int(os.getenv("RISK_PUSH_INTERVAL_SECONDS", "12")))  # 默认12秒，可通过环境变量调节
+runtime_api_keys: Dict[str, str] = {}
 
 # ==================== 辅助函数 ====================
 
@@ -151,6 +160,11 @@ async def fetch_multi_source_data(
     返回:
         新闻列表（已按权重排序）
     """
+    external_crawl_enabled = os.getenv("RISK_ENABLE_EXTERNAL_CRAWL", "false").lower() in {"1", "true", "yes", "on"}
+    if not external_crawl_enabled:
+        print("[INFO] 外部新闻抓取未启用，使用降级数据通道")
+        return []
+
     all_news = []
     
     # 1. 抓取新闻数据
@@ -231,6 +245,21 @@ def _legacy_action_from_risk_level(risk_level: str) -> Dict[str, str]:
         "critical": {"action": "紧急处置", "action_emoji": "[STOP]"},
     }
     return mapping.get(risk_level, {"action": "风险预警", "action_emoji": "[ALERT]"})
+
+
+def _has_configured_key(
+    env_names: List[str],
+    runtime_name: str,
+    request: Optional[Request] = None,
+    header_name: Optional[str] = None,
+) -> bool:
+    if runtime_api_keys.get(runtime_name):
+        return True
+    if any(os.getenv(name) for name in env_names):
+        return True
+    if request is not None and header_name:
+        return bool(request.headers.get(header_name))
+    return False
 
 
 def _build_sentiment_snapshot(news_items: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -1477,6 +1506,46 @@ async def multi_model_prediction(query: StockQuery):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@app.get("/api/config/status")
+async def config_status(request: Request):
+    """返回外部检索服务配置状态，不暴露任何 API Key。"""
+    serpapi_configured = _has_configured_key(
+        ["SERPAPI_API_KEY", "SERP_API_KEY"],
+        "serpapi_api_key",
+        request,
+        "X-SerpAPI-Key",
+    )
+    tavily_configured = _has_configured_key(
+        ["TAVILY_API_KEY", "TRVILY_API_KEY"],
+        "tavily_api_key",
+        request,
+        "X-Tavily-API-Key",
+    )
+    return {
+        "serpapi_configured": serpapi_configured,
+        "tavily_configured": tavily_configured,
+        "demo_mode_available": True,
+        "external_search_enabled": serpapi_configured or tavily_configured,
+        "timestamp": datetime.now().isoformat(),
+    }
+
+
+@app.post("/api/config/keys")
+async def save_config_keys(payload: ApiKeyConfig):
+    """黑客松本地运行使用：只保存配置状态到内存，重启后丢失。"""
+    if payload.serpapi_api_key:
+        runtime_api_keys["serpapi_api_key"] = payload.serpapi_api_key
+    if payload.tavily_api_key:
+        runtime_api_keys["tavily_api_key"] = payload.tavily_api_key
+    return {
+        "serpapi_configured": bool(runtime_api_keys.get("serpapi_api_key") or os.getenv("SERPAPI_API_KEY") or os.getenv("SERP_API_KEY")),
+        "tavily_configured": bool(runtime_api_keys.get("tavily_api_key") or os.getenv("TAVILY_API_KEY") or os.getenv("TRVILY_API_KEY")),
+        "demo_mode_available": True,
+        "external_search_enabled": True,
+        "timestamp": datetime.now().isoformat(),
+    }
+
 @app.get("/")
 async def root():
     """
@@ -1539,6 +1608,7 @@ async def root():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
 
 
 

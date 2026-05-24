@@ -1,0 +1,2 @@
+<template><article class="card"><div class="card-header"><h3 class="card-title">持仓权重</h3></div><table class="table"><thead><tr><th>资产</th><th>权重</th><th>行业</th></tr></thead><tbody><tr v-for="asset in holdings" :key="asset.symbol"><td>{{ asset.symbol }}</td><td>{{ asset.weight }}%</td><td>{{ asset.sector }}</td></tr></tbody></table></article></template>
+<script setup>defineProps({ holdings: { type: Array, required: true } })</script>

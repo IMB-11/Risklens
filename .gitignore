@@ -1,33 +1,18 @@
-# ========== 模型文件 ==========
-# Qwen 已替换为 DeepSeek API，本地模型不再需要
-Qwen1.5-1.8b-chat/
-
-# ========== 数据集（需单独分发）==========
-dataset_splits/
-combined_dataset/
-news_dataset_splits/
-
-# ========== Python ==========
-__pycache__/
-*.pyc
-*.pyo
-*.egg-info/
-dist/
-build/
-.eggs/
-
-# ========== IDE ==========
-.vscode/
-.idea/
-
-# ========== 环境 ==========
 .env
 *.env
+!.env.example
 .venv/
 venv/
+tft_env/
+__pycache__/
+*.pyc
+node_modules/
+frontend/node_modules/
+frontend/dist/
+dist/
+.cache/
+.pytest_cache/
+.DS_Store
+Thumbs.db
+*.log
 
-# ========== 运行时缓存 ==========
-backend/data/alt_data_cache/
-
-# ========== Claude Code ==========
-.claude/
