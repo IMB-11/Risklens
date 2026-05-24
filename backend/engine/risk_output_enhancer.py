@@ -1,7 +1,7 @@
 """Risk output enhancement:
 1) lightweight risk_sklearn fusion (low weight)
-2) Qwen-based narrative rendering with deterministic fallback.
-3) Qwen coordination memo across inference/prediction (no decision override).
+2) DeepSeek API-based narrative rendering with deterministic fallback.
+3) DeepSeek API coordination memo across inference/prediction (no decision override).
 """
 
 from __future__ import annotations
@@ -36,13 +36,9 @@ except Exception:  # pragma: no cover
     sp = None
 
 try:
-    import torch
-    from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+    import requests as _requests
 except Exception:  # pragma: no cover
-    torch = None
-    AutoModelForCausalLM = None
-    AutoTokenizer = None
-    pipeline = None
+    _requests = None
 
 
 def _safe_float(value: Any, default: float = 0.0) -> float:
@@ -236,15 +232,17 @@ class RiskSklearnAdapter:
 
 
 class QwenNarrativeFormatter:
-    """Narrative formatter with local Qwen model and deterministic fallback."""
+    """Narrative formatter using DeepSeek API with deterministic fallback."""
+
+    API_URL = "https://api.deepseek.com/v1/chat/completions"
+    MODEL = "deepseek-chat"
 
     def __init__(self) -> None:
         self.enabled = os.getenv("ENABLE_QWEN_NARRATIVE", "true").strip().lower() in {"1", "true", "yes", "on"}
         self.coord_enabled = os.getenv("ENABLE_QWEN_COORDINATION", "true").strip().lower() in {"1", "true", "yes", "on"}
-        self.model_path = os.getenv("QWEN_MODEL_PATH", "./Qwen1.5-1.8b-chat")
+        self.api_key = os.getenv("DEEPSEEK_API_KEY", "").strip()
         self.timeout_seconds = max(5.0, _safe_float(os.getenv("QWEN_NARRATIVE_TIMEOUT_SECONDS", "20"), 20.0))
         self.coord_timeout_seconds = max(4.0, _safe_float(os.getenv("QWEN_COORDINATION_TIMEOUT_SECONDS", "12"), 12.0))
-        self._generator = None
         self._init_attempted = False
         self._init_error: Optional[str] = None
 
@@ -252,41 +250,31 @@ class QwenNarrativeFormatter:
         if self._init_attempted:
             return
         self._init_attempted = True
-
         if not (self.enabled or self.coord_enabled):
-            self._init_error = "qwen_disabled_by_env"
+            self._init_error = "narrative_disabled_by_env"
             return
-        if AutoTokenizer is None or AutoModelForCausalLM is None or pipeline is None or torch is None:
-            self._init_error = "transformers/torch unavailable"
+        if _requests is None:
+            self._init_error = "requests library unavailable"
             return
-        if not Path(self.model_path).exists():
-            self._init_error = f"model path not found: {self.model_path}"
-            return
+        if not self.api_key:
+            self._init_error = "DEEPSEEK_API_KEY not set"
 
-        try:
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-            tokenizer = AutoTokenizer.from_pretrained(self.model_path, trust_remote_code=True)
-            model = AutoModelForCausalLM.from_pretrained(
-                self.model_path,
-                trust_remote_code=True,
-                torch_dtype=torch.float16 if device == "cuda" else torch.float32,
-                low_cpu_mem_usage=True,
-            )
-            model = model.to(device)
-            self._generator = pipeline(
-                "text-generation",
-                model=model,
-                tokenizer=tokenizer,
-                device=0 if device == "cuda" else -1,
-                max_new_tokens=420,
-                temperature=0.25,
-                top_p=0.9,
-                repetition_penalty=1.06,
-                return_full_text=False,
-            )
-        except Exception as exc:  # pragma: no cover
-            self._init_error = str(exc)
-            self._generator = None
+    def _call_api(self, user_content: str, timeout: float) -> str:
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+        body = {
+            "model": self.MODEL,
+            "messages": [{"role": "user", "content": user_content}],
+            "max_tokens": 600,
+            "temperature": 0.25,
+            "top_p": 0.9,
+        }
+        resp = _requests.post(self.API_URL, json=body, headers=headers, timeout=timeout)
+        resp.raise_for_status()
+        data = resp.json()
+        return (data.get("choices", [{}])[0].get("message", {}).get("content", "") or "").strip()
 
     def _fallback(self, stock_name: str, assessment: Dict[str, Any], sklearn_signal: Dict[str, Any]) -> str:
         q = assessment.get("quantile_risk", {}) or {}
@@ -344,14 +332,12 @@ class QwenNarrativeFormatter:
         raw = (text or "").strip()
         if not raw:
             return None
-        # try direct JSON
         try:
             obj = json.loads(raw)
             if isinstance(obj, dict):
                 return obj
         except Exception:
             pass
-        # try fenced json
         block = re.search(r"```json\s*(\{.*?\})\s*```", raw, flags=re.DOTALL | re.IGNORECASE)
         if block:
             try:
@@ -360,7 +346,6 @@ class QwenNarrativeFormatter:
                     return obj
             except Exception:
                 pass
-        # try first {...} span
         span = re.search(r"(\{.*\})", raw, flags=re.DOTALL)
         if span:
             snippet = span.group(1)
@@ -402,7 +387,7 @@ class QwenNarrativeFormatter:
                 "text": self._fallback(stock_name, assessment, sklearn_signal),
             }
         self._ensure_loaded()
-        if self._generator is None:
+        if self._init_error:
             return {
                 "used_qwen": False,
                 "error": self._init_error,
@@ -411,15 +396,14 @@ class QwenNarrativeFormatter:
 
         prompt = self._build_prompt(stock_name, assessment, news_items, sklearn_signal)
         try:
-            rows = await asyncio.wait_for(asyncio.to_thread(self._generator, prompt), timeout=self.timeout_seconds)
-            text = ""
-            if isinstance(rows, list) and rows:
-                text = str(rows[0].get("generated_text", "") or "").strip()
+            text = await asyncio.wait_for(
+                asyncio.to_thread(self._call_api, prompt, self.timeout_seconds),
+                timeout=self.timeout_seconds + 5,
+            )
             if not text:
-                text = self._fallback(stock_name, assessment, sklearn_signal)
-                return {"used_qwen": False, "error": "empty_generation", "text": text}
+                return {"used_qwen": False, "error": "empty_generation", "text": self._fallback(stock_name, assessment, sklearn_signal)}
             return {"used_qwen": True, "error": None, "text": text}
-        except Exception as exc:  # pragma: no cover
+        except Exception as exc:
             return {
                 "used_qwen": False,
                 "error": str(exc),
@@ -430,19 +414,19 @@ class QwenNarrativeFormatter:
         self._ensure_loaded()
         if not self.coord_enabled:
             return {"used_qwen": False, "error": "coordination_disabled", "patch": {}}
-        if self._generator is None:
+        if self._init_error:
             return {"used_qwen": False, "error": self._init_error, "patch": {}}
         prompt = self._coord_prompt(payload)
         try:
-            rows = await asyncio.wait_for(asyncio.to_thread(self._generator, prompt), timeout=self.coord_timeout_seconds)
-            text = ""
-            if isinstance(rows, list) and rows:
-                text = str(rows[0].get("generated_text", "") or "").strip()
+            text = await asyncio.wait_for(
+                asyncio.to_thread(self._call_api, prompt, self.coord_timeout_seconds),
+                timeout=self.coord_timeout_seconds + 5,
+            )
             patch = self._extract_json_object(text) or {}
             if not isinstance(patch, dict):
                 patch = {}
             return {"used_qwen": bool(patch), "error": None if patch else "empty_or_invalid_json", "patch": patch}
-        except Exception as exc:  # pragma: no cover
+        except Exception as exc:
             return {"used_qwen": False, "error": str(exc), "patch": {}}
 
 

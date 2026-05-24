@@ -6,8 +6,8 @@
 
 RiskLens 是一个面向 A 股市场的 AI 风控助手。它像一个**永不休息的分析师**，24 小时盯着全网财经资讯、另类数据和市场行情，实时帮你判断"这只股票现在安不安全"。
 
-**完全免费，本地运行，不用花一分钱。**
-所有 AI 模型全部本地部署，不需要调用任何付费 API，不需要订阅任何服务。你自己的电脑就是你的专属风控终端。
+**轻量部署，开箱即用。**
+核心风控引擎本地运行，AI 叙事生成接入 DeepSeek API，低成本享受大模型能力。只需一个 API Key 即可启动。
 
 ---
 
@@ -27,11 +27,11 @@ RiskLens 是一个面向 A 股市场的 AI 风控助手。它像一个**永不�
 
 ### AI 风控叙述生成
 
-看不懂量化指标没关系。系统用本地部署的大语言模型自动生成自然语言风控报告：
+看不懂量化指标没关系。系统通过 DeepSeek API 自动生成自然语言风控报告：
 
 > "当前负面舆情集中，建议降低仓位。"
 
-把数据翻译成人话——**全程本地运行，你的数据不出本机，零成本无限用。**
+把数据翻译成人话——**一个 API Key，无限生成。**
 
 ### 压力测试与情景模拟
 
@@ -58,18 +58,28 @@ cd Risklens
 pip install -r requirements.txt
 ```
 
-### 3. 下载模型
+### 3. 配置 API Key
 
-所有模型均从 HuggingFace 免费下载，项目启动时会自动加载：
+复制环境变量模板并填入你的 DeepSeek API Key（从 https://platform.deepseek.com 获取）：
+
+```bash
+cp .env.example .env
+# 编辑 .env，填入 DEEPSEEK_API_KEY=sk-xxx
+```
+
+### 4. 下载模型
+
+以下模型从 HuggingFace 免费下载，项目启动时自动加载：
 
 | 模型 | 用途 | HuggingFace 地址 |
 |------|------|-----------------|
-| Qwen1.5-1.8B-Chat | 风控叙述生成 + 跨模块审计 | `Qwen/Qwen1.5-1.8B-Chat` |
 | FinanceLM | 趋势预测 + 投资建议 | `financeLM/stock-movement-prediction` |
 | BERT-Chinese-Sentiment | 中文金融情感分析 | `bert-base-chinese-finetuning-financial-news-sentiment-v2` |
 | mDeBERTa-v3 | 多语言语义风险评分 | `MoritzLaurer/mDeBERTa-v3-base-mnli-xnli` |
 
-### 4. 启动服务
+> AI 风控叙述生成使用 DeepSeek API，无需本地部署大模型。
+
+### 5. 启动服务
 
 ```bash
 python -m backend.api.main
@@ -99,7 +109,7 @@ python -m backend.api.main
 
 - **后端：** Python + FastAPI
 - **前端：** Vue 3 + Vite
-- **AI 模型：** PyTorch + Hugging Face Transformers（全部本地运行）
+- **AI 模型：** PyTorch + Hugging Face Transformers（本地推理）+ DeepSeek API（风控叙述）
 - **数据源：** AKShare + SerpApi + Tavily + 多站爬虫
 - **实时通信：** WebSocket
 
@@ -119,7 +129,6 @@ RiskLens/
 │   └── alt_data/       # 国内另类数据引擎（13 个数据源）
 ├── frontend/           # Vue 3 前端
 ├── config/             # 全局配置
-├── tests/              # 测试用例
 └── risk_sklearn/       # 轻量级融合模型
 ```
 

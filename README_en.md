@@ -6,8 +6,8 @@
 
 RiskLens is an AI risk control assistant built for China's A-share market. Think of it as an **analyst that never sleeps** — monitoring financial news, alternative data, and market movements 24/7, so you always know whether a stock is safe or not.
 
-**100% free. Runs locally. Zero cost.**
-All AI models run on your own machine. No paid APIs, no subscriptions. Your computer becomes your personal risk terminal.
+**Lightweight deployment, ready to go.**
+Core risk engine runs locally; AI narrative generation powered by DeepSeek API — affordable access to large language model capabilities. Just add an API key and start.
 
 ---
 
@@ -27,11 +27,11 @@ The system detects whether the market is in a bull, bear, sideways, or high-vola
 
 ### AI-Generated Risk Narratives
 
-Don't understand quantitative indicators? No problem. A locally deployed language model generates plain-language risk reports:
+Don't understand quantitative indicators? No problem. The system generates plain-language risk reports via DeepSeek API:
 
 > "Negative sentiment is concentrated. Consider reducing your position."
 
-Data translated into human language — **fully local, your data never leaves your machine, unlimited use at zero cost.**
+Data translated into human language — **one API key, unlimited generation.**
 
 ### Stress Testing & Scenario Simulation
 
@@ -58,18 +58,28 @@ cd Risklens
 pip install -r requirements.txt
 ```
 
-### 3. Download models
+### 3. Configure API Key
 
-All models are free to download from HuggingFace and auto-load on startup:
+Copy the env template and fill in your DeepSeek API key (get one at https://platform.deepseek.com):
+
+```bash
+cp .env.example .env
+# Edit .env and set DEEPSEEK_API_KEY=sk-xxx
+```
+
+### 4. Download models
+
+The following models are free to download from HuggingFace and auto-load on startup:
 
 | Model | Purpose | HuggingFace |
 |-------|---------|-------------|
-| Qwen1.5-1.8B-Chat | Risk narrative generation + cross-module audit | `Qwen/Qwen1.5-1.8B-Chat` |
 | FinanceLM | Trend prediction + investment advice | `financeLM/stock-movement-prediction` |
 | BERT-Chinese-Sentiment | Chinese financial sentiment analysis | `bert-base-chinese-finetuning-financial-news-sentiment-v2` |
 | mDeBERTa-v3 | Multilingual semantic risk scoring | `MoritzLaurer/mDeBERTa-v3-base-mnli-xnli` |
 
-### 4. Start the server
+> AI risk narrative generation uses DeepSeek API — no local LLM required.
+
+### 5. Start the server
 
 ```bash
 python -m backend.api.main
@@ -99,7 +109,7 @@ Visit `http://localhost:8000` for API documentation.
 
 - **Backend:** Python + FastAPI
 - **Frontend:** Vue 3 + Vite
-- **AI Models:** PyTorch + Hugging Face Transformers (all local)
+- **AI Models:** PyTorch + Hugging Face Transformers (local inference) + DeepSeek API (risk narratives)
 - **Data Sources:** AKShare + SerpApi + Tavily + multi-site crawlers
 - **Real-time:** WebSocket
 
@@ -119,7 +129,6 @@ RiskLens/
 │   └── alt_data/       # Domestic alternative data engine (13 sources)
 ├── frontend/           # Vue 3 frontend
 ├── config/             # Global configuration
-├── tests/              # Test cases
 └── risk_sklearn/       # Lightweight fusion model
 ```
 
