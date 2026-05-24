@@ -1,4 +1,4 @@
-English | [中文](README_zh.md)
+[中文](README.md) | English
 
 # RiskLens — AI-Powered Financial Risk Control System
 
