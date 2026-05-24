@@ -1,0 +1,100 @@
+{
+  "eval_metrics": {
+    "accuracy": 1.0,
+    "f1_macro": 1.0,
+    "confusion_matrix": [
+      [
+        394,
+        0,
+        0
+      ],
+      [
+        0,
+        693,
+        0
+      ],
+      [
+        0,
+        0,
+        787
+      ]
+    ],
+    "classification_report": {
+      "low": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 394.0
+      },
+      "medium": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 693.0
+      },
+      "high": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 787.0
+      },
+      "accuracy": 1.0,
+      "macro avg": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 1874.0
+      },
+      "weighted avg": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 1874.0
+      }
+    },
+    "precision_low": 1.0,
+    "recall_low": 1.0,
+    "f1_low": 1.0,
+    "pred_count_low": 394,
+    "pred_rate_low": 0.2102454642475987,
+    "label_count_low": 394,
+    "label_rate_low": 0.2102454642475987,
+    "mean_prob_low": 0.20998659394732672,
+    "precision_medium": 1.0,
+    "recall_medium": 1.0,
+    "f1_medium": 1.0,
+    "pred_count_medium": 693,
+    "pred_rate_medium": 0.3697972251867663,
+    "label_count_medium": 693,
+    "label_rate_medium": 0.3697972251867663,
+    "mean_prob_medium": 0.36984872918782274,
+    "precision_high": 1.0,
+    "recall_high": 1.0,
+    "f1_high": 1.0,
+    "pred_count_high": 787,
+    "pred_rate_high": 0.419957310565635,
+    "label_count_high": 787,
+    "label_rate_high": 0.419957310565635,
+    "mean_prob_high": 0.42016467686485054
+  },
+  "label_distribution": {
+    "train": {
+      "low": 3484,
+      "medium": 6664,
+      "high": 6715
+    },
+    "validation": {
+      "low": 394,
+      "medium": 693,
+      "high": 787
+    }
+  },
+  "settings": {
+    "focus_chars": 1400,
+    "max_features": 80000,
+    "min_df": 2,
+    "ngram_max": 2,
+    "class_weight": "balanced",
+    "c": 2.0
+  }
+}

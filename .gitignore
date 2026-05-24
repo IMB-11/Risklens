@@ -1,0 +1,29 @@
+# ========== 模型文件（全部从 HuggingFace 下载）==========
+Qwen1.5-1.8b-chat/
+mDeBERTa-v3-base-mnli-xnli/
+bert-base-chinese-finetuning-financial-news-sentiment-v2/
+financeLM_outputpath_stock_movement_prediction__5/
+
+# ========== 数据集（需单独分发）==========
+dataset_splits/
+combined_dataset/
+news_dataset_splits/
+
+# ========== Python ==========
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ========== IDE ==========
+.vscode/
+.idea/
+
+# ========== 环境 ==========
+.env
+*.env
+.venv/
+venv/

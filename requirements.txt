@@ -1,0 +1,39 @@
+# Core ML
+torch>=2.0.0
+torchvision>=0.15.0
+torchaudio>=2.0.0
+
+# Time-series
+pytorch-forecasting>=1.0.0
+pytorch-lightning>=2.0.0
+
+# Market data and indicators
+akshare>=1.10.0
+pandas-ta>=0.3.0
+
+# Data science
+pandas>=2.0.0
+numpy>=1.24.0
+scipy>=1.10.0
+statsmodels>=0.14.0
+scikit-learn>=1.2.0
+joblib>=1.3.0
+
+# Web service
+fastapi>=0.100.0
+uvicorn>=0.23.0
+requests>=2.31.0
+aiohttp>=3.8.0
+aiofiles>=23.0.0
+python-dotenv>=1.0.0
+
+# NLP / Transformers
+transformers>=4.30.0
+sentencepiece>=0.1.99
+accelerate>=0.20.0
+datasets>=2.14.0
+tokenizers>=0.14.0
+
+# Causal / graph analysis
+networkx>=3.1
+matplotlib>=3.7.0
