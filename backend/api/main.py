@@ -160,7 +160,10 @@ async def fetch_multi_source_data(
     返回:
         新闻列表（已按权重排序）
     """
-    external_crawl_enabled = os.getenv("RISK_ENABLE_EXTERNAL_CRAWL", "false").lower() in {"1", "true", "yes", "on"}
+    external_crawl_enabled = (
+        os.getenv("RISK_ENABLE_EXTERNAL_CRAWL", "false").lower() in {"1", "true", "yes", "on"}
+        or _external_search_configured()
+    )
     if not external_crawl_enabled:
         print("[INFO] 外部新闻抓取未启用，使用降级数据通道")
         return []
@@ -260,6 +263,87 @@ def _has_configured_key(
     if request is not None and header_name:
         return bool(request.headers.get(header_name))
     return False
+
+
+def _current_serpapi_key() -> str:
+    return (
+        runtime_api_keys.get("serpapi_api_key")
+        or os.getenv("SERPAPI_API_KEY")
+        or os.getenv("SERP_API_KEY")
+        or ""
+    ).strip()
+
+
+def _current_tavily_key() -> str:
+    return (
+        runtime_api_keys.get("tavily_api_key")
+        or os.getenv("TAVILY_API_KEY")
+        or os.getenv("TRVILY_API_KEY")
+        or os.getenv("TVLY_API_KEY")
+        or ""
+    ).strip()
+
+
+def _external_search_configured() -> bool:
+    return bool(_current_serpapi_key() or _current_tavily_key())
+
+
+def _clear_search_usage_cache(crawler: Any) -> None:
+    cache = getattr(crawler, "_usage_cache", None)
+    if isinstance(cache, dict):
+        cache["serpapi"] = {"ts": 0.0, "payload": {}}
+        cache["tavily"] = {"ts": 0.0, "payload": {}}
+
+
+def _apply_runtime_api_keys(
+    serpapi_api_key: Optional[str] = None,
+    tavily_api_key: Optional[str] = None,
+) -> Dict[str, bool]:
+    """Apply user-provided search API keys to env and already-created crawler instances."""
+    serpapi_key = (serpapi_api_key or "").strip()
+    tavily_key = (tavily_api_key or "").strip()
+
+    if serpapi_key:
+        runtime_api_keys["serpapi_api_key"] = serpapi_key
+        os.environ["SERPAPI_API_KEY"] = serpapi_key
+        os.environ["SERP_API_KEY"] = serpapi_key
+    if tavily_key:
+        runtime_api_keys["tavily_api_key"] = tavily_key
+        os.environ["TAVILY_API_KEY"] = tavily_key
+        os.environ["TRVILY_API_KEY"] = tavily_key
+
+    active_serpapi_key = _current_serpapi_key()
+    active_tavily_key = _current_tavily_key()
+
+    # NewsCrawler reads keys at construction time, so update live instances too.
+    for attr_name in ("_core_crawler", "_fallback_crawler"):
+        crawler = getattr(news_crawler, attr_name, None)
+        if crawler is None:
+            continue
+        changed = False
+        if active_serpapi_key and getattr(crawler, "serpapi_api_key", "") != active_serpapi_key:
+            setattr(crawler, "serpapi_api_key", active_serpapi_key)
+            changed = True
+        if active_tavily_key and getattr(crawler, "tavily_api_key", "") != active_tavily_key:
+            setattr(crawler, "tavily_api_key", active_tavily_key)
+            changed = True
+        if changed:
+            _clear_search_usage_cache(crawler)
+
+    return {
+        "serpapi_configured": bool(active_serpapi_key),
+        "tavily_configured": bool(active_tavily_key),
+    }
+
+
+@app.middleware("http")
+async def runtime_api_key_middleware(request: Request, call_next):
+    """Allow frontend-provided API keys to power backend search during this local session."""
+    serpapi_key = (request.headers.get("X-SerpAPI-Key") or "").strip()
+    tavily_key = (request.headers.get("X-Tavily-API-Key") or "").strip()
+    if serpapi_key or tavily_key:
+        _apply_runtime_api_keys(serpapi_key, tavily_key)
+    return await call_next(request)
 
 
 def _build_sentiment_snapshot(news_items: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -1510,6 +1594,10 @@ async def multi_model_prediction(query: StockQuery):
 @app.get("/api/config/status")
 async def config_status(request: Request):
     """返回外部检索服务配置状态，不暴露任何 API Key。"""
+    _apply_runtime_api_keys(
+        request.headers.get("X-SerpAPI-Key"),
+        request.headers.get("X-Tavily-API-Key"),
+    )
     serpapi_configured = _has_configured_key(
         ["SERPAPI_API_KEY", "SERP_API_KEY"],
         "serpapi_api_key",
@@ -1527,6 +1615,11 @@ async def config_status(request: Request):
         "tavily_configured": tavily_configured,
         "demo_mode_available": True,
         "external_search_enabled": serpapi_configured or tavily_configured,
+        "external_crawl_enabled": (
+            os.getenv("RISK_ENABLE_EXTERNAL_CRAWL", "false").lower() in {"1", "true", "yes", "on"}
+            or serpapi_configured
+            or tavily_configured
+        ),
         "timestamp": datetime.now().isoformat(),
     }
 
@@ -1534,15 +1627,13 @@ async def config_status(request: Request):
 @app.post("/api/config/keys")
 async def save_config_keys(payload: ApiKeyConfig):
     """黑客松本地运行使用：只保存配置状态到内存，重启后丢失。"""
-    if payload.serpapi_api_key:
-        runtime_api_keys["serpapi_api_key"] = payload.serpapi_api_key
-    if payload.tavily_api_key:
-        runtime_api_keys["tavily_api_key"] = payload.tavily_api_key
+    status = _apply_runtime_api_keys(payload.serpapi_api_key, payload.tavily_api_key)
     return {
-        "serpapi_configured": bool(runtime_api_keys.get("serpapi_api_key") or os.getenv("SERPAPI_API_KEY") or os.getenv("SERP_API_KEY")),
-        "tavily_configured": bool(runtime_api_keys.get("tavily_api_key") or os.getenv("TAVILY_API_KEY") or os.getenv("TRVILY_API_KEY")),
+        "serpapi_configured": status["serpapi_configured"],
+        "tavily_configured": status["tavily_configured"],
         "demo_mode_available": True,
-        "external_search_enabled": True,
+        "external_search_enabled": status["serpapi_configured"] or status["tavily_configured"],
+        "external_crawl_enabled": status["serpapi_configured"] or status["tavily_configured"],
         "timestamp": datetime.now().isoformat(),
     }
 
