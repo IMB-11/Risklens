@@ -65,3 +65,21 @@ export const demoStockAnalysis = {
   },
   source: 'demo'
 }
+
+export const createDemoStockAnalysis = (stockName = 'NVDA') => {
+  const symbol = String(stockName || 'NVDA').trim().toUpperCase()
+  const data = JSON.parse(JSON.stringify(demoStockAnalysis))
+  data.stock.symbol = symbol
+  data.stock.name = symbol === 'NVDA' ? 'NVIDIA Corporation' : `${symbol} Corporation`
+  data.stock.updatedAt = new Date().toLocaleString()
+  data.news = data.news.map((item) => ({
+    ...item,
+    title: item.title.replace(/NVIDIA|NVDA/g, symbol)
+  }))
+  data.alerts = data.alerts.map((item) => ({
+    ...item,
+    description: item.description.replace(/NVDA/g, symbol)
+  }))
+  data.source = 'demo'
+  return data
+}

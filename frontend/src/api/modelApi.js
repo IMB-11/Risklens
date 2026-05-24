@@ -5,6 +5,6 @@ export const predictWithModels = (stockName, riskLevel = 'moderate') =>
     stock_name: stockName,
     risk_level: riskLevel,
     limit: 20
-  }).then(unwrap)
+  }, { timeout: 60000 }).then(unwrap)
 
 export const getModelStats = () => apiClient.get('/model/stats').then(unwrap)

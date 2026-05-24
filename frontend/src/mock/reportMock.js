@@ -24,3 +24,19 @@ export const demoRiskReport = {
   alerts: [{ level: 'high', title: 'VaR 超过阈值', time: '14:32', description: '95% VaR 已达到 -4.8%。' }],
   raw: {}
 }
+
+export const createDemoRiskReport = (stockName = 'NVDA', riskLevel = 'moderate') => {
+  const symbol = String(stockName || 'NVDA').trim().toUpperCase()
+  const data = JSON.parse(JSON.stringify(demoRiskReport))
+  data.stock.symbol = symbol
+  data.stock.name = symbol === 'NVDA' ? 'NVIDIA Corporation' : `${symbol} Corporation`
+  data.stock.riskProfile = riskLevel
+  data.stock.updatedAt = new Date().toLocaleString()
+  data.summary.title = `${symbol} AI 风控分析报告`
+  data.llm.text = data.llm.text.replace(/NVDA/g, symbol).replace(/NVIDIA/g, symbol)
+  data.alerts = data.alerts.map((item) => ({
+    ...item,
+    description: item.description?.replace(/NVDA/g, symbol)
+  }))
+  return data
+}

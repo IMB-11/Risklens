@@ -2,7 +2,7 @@ import { assessRisk } from '../api/riskApi'
 import { predictWithModels } from '../api/modelApi'
 import { getNewsSummaryApi } from '../api/newsApi'
 import { adaptStockAnalysis } from '../adapters/stockAdapter'
-import { demoStockAnalysis } from '../mock/stockMock'
+import { createDemoStockAnalysis } from '../mock/stockMock'
 import { isDemoModeEnabled } from './configService'
 
 export const getHealth = async () => {
@@ -15,7 +15,7 @@ export const getMultiModelPrediction = (stockName, riskLevel) => predictWithMode
 export const getNewsSummary = (stockName) => getNewsSummaryApi(stockName)
 
 export const analyzeStock = async (stockName = 'NVDA', riskLevel = 'moderate') => {
-  if (isDemoModeEnabled()) return { ...demoStockAnalysis, source: 'demo' }
+  if (isDemoModeEnabled()) return createDemoStockAnalysis(stockName)
 
   try {
     const [riskPayload, modelPayload, newsPayload] = await Promise.allSettled([
@@ -32,8 +32,8 @@ export const analyzeStock = async (stockName = 'NVDA', riskLevel = 'moderate') =
       riskLevel
     })
 
-    return data.source === 'api' ? data : { ...demoStockAnalysis, source: 'demo' }
+    return data.source === 'api' ? data : createDemoStockAnalysis(stockName)
   } catch {
-    return { ...demoStockAnalysis, source: 'demo' }
+    return createDemoStockAnalysis(stockName)
   }
 }

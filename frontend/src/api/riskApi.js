@@ -7,7 +7,7 @@ export const assessRisk = (stockName, riskLevel = 'moderate') =>
     limit: 8,
     include_social: false,
     enable_alt_data: false
-  }).then(unwrap)
+  }, { timeout: 60000 }).then(unwrap)
 
 export const getRiskAlerts = (stockName, riskLevel = 'moderate') =>
   apiClient.post('/risk/alerts', {
@@ -16,4 +16,4 @@ export const getRiskAlerts = (stockName, riskLevel = 'moderate') =>
     limit: 8,
     include_social: false,
     enable_alt_data: false
-  }).then(unwrap)
+  }, { timeout: 60000 }).then(unwrap)
