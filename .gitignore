@@ -27,3 +27,9 @@ build/
 *.env
 .venv/
 venv/
+
+# ========== 运行时缓存 ==========
+backend/data/alt_data_cache/
+
+# ========== Claude Code ==========
+.claude/
