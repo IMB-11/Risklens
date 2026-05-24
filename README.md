@@ -67,19 +67,7 @@ cp .env.example .env
 # 编辑 .env，填入 DEEPSEEK_API_KEY=sk-xxx
 ```
 
-### 4. 下载模型
-
-以下模型从 HuggingFace 免费下载，项目启动时自动加载：
-
-| 模型 | 用途 | HuggingFace 地址 |
-|------|------|-----------------|
-| FinanceLM | 趋势预测 + 投资建议 | `financeLM/stock-movement-prediction` |
-| BERT-Chinese-Sentiment | 中文金融情感分析 | `bert-base-chinese-finetuning-financial-news-sentiment-v2` |
-| mDeBERTa-v3 | 多语言语义风险评分 | `MoritzLaurer/mDeBERTa-v3-base-mnli-xnli` |
-
-> AI 风控叙述生成使用 DeepSeek API，无需本地部署大模型。
-
-### 5. 启动服务
+### 4. 启动服务
 
 ```bash
 python -m backend.api.main

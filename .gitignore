@@ -1,8 +1,6 @@
-# ========== 模型文件（全部从 HuggingFace 下载）==========
+# ========== 模型文件 ==========
+# Qwen 已替换为 DeepSeek API，本地模型不再需要
 Qwen1.5-1.8b-chat/
-mDeBERTa-v3-base-mnli-xnli/
-bert-base-chinese-finetuning-financial-news-sentiment-v2/
-financeLM_outputpath_stock_movement_prediction__5/
 
 # ========== 数据集（需单独分发）==========
 dataset_splits/

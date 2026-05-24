@@ -67,19 +67,7 @@ cp .env.example .env
 # Edit .env and set DEEPSEEK_API_KEY=sk-xxx
 ```
 
-### 4. Download models
-
-The following models are free to download from HuggingFace and auto-load on startup:
-
-| Model | Purpose | HuggingFace |
-|-------|---------|-------------|
-| FinanceLM | Trend prediction + investment advice | `financeLM/stock-movement-prediction` |
-| BERT-Chinese-Sentiment | Chinese financial sentiment analysis | `bert-base-chinese-finetuning-financial-news-sentiment-v2` |
-| mDeBERTa-v3 | Multilingual semantic risk scoring | `MoritzLaurer/mDeBERTa-v3-base-mnli-xnli` |
-
-> AI risk narrative generation uses DeepSeek API — no local LLM required.
-
-### 5. Start the server
+### 4. Start the server
 
 ```bash
 python -m backend.api.main
