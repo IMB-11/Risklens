@@ -1,4 +1,4 @@
-﻿from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from datetime import datetime
@@ -111,6 +111,9 @@ class AlternativeDataRiskQuery(BaseModel):
 class ApiKeyConfig(BaseModel):
     serpapi_api_key: Optional[str] = None
     tavily_api_key: Optional[str] = None
+    qwen_api_key: Optional[str] = None
+    deepseek_api_key: Optional[str] = None
+    llm_provider: Optional[str] = None
 
 # ==================== 股票代码映射 ====================
 
@@ -284,6 +287,42 @@ def _current_tavily_key() -> str:
     ).strip()
 
 
+
+def _normalize_llm_provider_name(raw: Optional[str]) -> str:
+    provider = (raw or "auto").strip().lower().replace("-", "_")
+    aliases = {
+        "qwen": "qwen_api",
+        "dashscope": "qwen_api",
+        "aliyun_qwen": "qwen_api",
+        "local": "local_qwen",
+        "localqwen": "local_qwen",
+        "deep_seek": "deepseek",
+        "none": "rules",
+        "fallback": "rules",
+    }
+    provider = aliases.get(provider, provider)
+    return provider if provider in {"auto", "local_qwen", "qwen_api", "deepseek", "rules"} else "auto"
+
+
+def _current_qwen_api_key() -> str:
+    return (
+        runtime_api_keys.get("qwen_api_key")
+        or os.getenv("QWEN_API_KEY")
+        or os.getenv("DASHSCOPE_API_KEY")
+        or ""
+    ).strip()
+
+
+def _current_deepseek_key() -> str:
+    return (
+        runtime_api_keys.get("deepseek_api_key")
+        or os.getenv("DEEPSEEK_API_KEY")
+        or ""
+    ).strip()
+
+
+def _current_llm_provider() -> str:
+    return _normalize_llm_provider_name(runtime_api_keys.get("llm_provider") or os.getenv("LLM_PROVIDER") or "auto")
 def _external_search_configured() -> bool:
     return bool(_current_serpapi_key() or _current_tavily_key())
 
@@ -298,10 +337,16 @@ def _clear_search_usage_cache(crawler: Any) -> None:
 def _apply_runtime_api_keys(
     serpapi_api_key: Optional[str] = None,
     tavily_api_key: Optional[str] = None,
+    qwen_api_key: Optional[str] = None,
+    deepseek_api_key: Optional[str] = None,
+    llm_provider: Optional[str] = None,
 ) -> Dict[str, bool]:
-    """Apply user-provided search API keys to env and already-created crawler instances."""
+    """Apply user-provided API keys to env and already-created runtime instances."""
     serpapi_key = (serpapi_api_key or "").strip()
     tavily_key = (tavily_api_key or "").strip()
+    qwen_key = (qwen_api_key or "").strip()
+    deepseek_key = (deepseek_api_key or "").strip()
+    provider = _normalize_llm_provider_name(llm_provider) if llm_provider is not None else None
 
     if serpapi_key:
         runtime_api_keys["serpapi_api_key"] = serpapi_key
@@ -311,6 +356,16 @@ def _apply_runtime_api_keys(
         runtime_api_keys["tavily_api_key"] = tavily_key
         os.environ["TAVILY_API_KEY"] = tavily_key
         os.environ["TRVILY_API_KEY"] = tavily_key
+    if qwen_key:
+        runtime_api_keys["qwen_api_key"] = qwen_key
+        os.environ["QWEN_API_KEY"] = qwen_key
+        os.environ["DASHSCOPE_API_KEY"] = qwen_key
+    if deepseek_key:
+        runtime_api_keys["deepseek_api_key"] = deepseek_key
+        os.environ["DEEPSEEK_API_KEY"] = deepseek_key
+    if provider:
+        runtime_api_keys["llm_provider"] = provider
+        os.environ["LLM_PROVIDER"] = provider
 
     active_serpapi_key = _current_serpapi_key()
     active_tavily_key = _current_tavily_key()
@@ -333,19 +388,37 @@ def _apply_runtime_api_keys(
     return {
         "serpapi_configured": bool(active_serpapi_key),
         "tavily_configured": bool(active_tavily_key),
+        "qwen_api_configured": bool(_current_qwen_api_key()),
+        "deepseek_configured": bool(_current_deepseek_key()),
+        "llm_provider": _current_llm_provider(),
     }
 
 
 @app.middleware("http")
 async def runtime_api_key_middleware(request: Request, call_next):
-    """Allow frontend-provided API keys to power backend search during this local session."""
+    """Allow frontend-provided API keys to power backend search and LLM reports during this local session."""
     serpapi_key = (request.headers.get("X-SerpAPI-Key") or "").strip()
     tavily_key = (request.headers.get("X-Tavily-API-Key") or "").strip()
-    if serpapi_key or tavily_key:
-        _apply_runtime_api_keys(serpapi_key, tavily_key)
+    qwen_key = (request.headers.get("X-Qwen-API-Key") or "").strip()
+    deepseek_key = (request.headers.get("X-DeepSeek-API-Key") or "").strip()
+    llm_provider = (request.headers.get("X-LLM-Provider") or "").strip() or None
+    if serpapi_key or tavily_key or qwen_key or deepseek_key or llm_provider:
+        _apply_runtime_api_keys(serpapi_key, tavily_key, qwen_key, deepseek_key, llm_provider)
     return await call_next(request)
 
 
+
+def _narrative_meta_from_enhancement(enhancement: Dict[str, Any]) -> Dict[str, Any]:
+    narrative = enhancement.get("narrative") or {}
+    return {
+        "provider": narrative.get("provider") or "rules",
+        "used_llm": bool(narrative.get("used_llm") or narrative.get("used_qwen") or narrative.get("used_qwen_api") or narrative.get("used_deepseek")),
+        "used_qwen": bool(narrative.get("used_qwen", False)),
+        "used_qwen_api": bool(narrative.get("used_qwen_api", False)),
+        "used_deepseek": bool(narrative.get("used_deepseek", False)),
+        "llm_provider_requested": _current_llm_provider(),
+        "error": narrative.get("error"),
+    }
 def _build_sentiment_snapshot(news_items: List[Dict[str, Any]]) -> Dict[str, Any]:
     total = len(news_items)
     if total == 0:
@@ -668,10 +741,8 @@ async def _run_risk_assessment(
             "risk_level_shadow": enhancement.get("risk_level_shadow", assessment.get("risk_level")),
         }
         assessment["narrative"] = (enhancement.get("narrative") or {}).get("text", "")
-        assessment["narrative_meta"] = {
-            "used_qwen": bool((enhancement.get("narrative") or {}).get("used_qwen", False)),
-            "error": (enhancement.get("narrative") or {}).get("error"),
-        }
+        assessment["narrative_meta"] = _narrative_meta_from_enhancement(enhancement)
+
         return assessment
 
     inference_task = asyncio.create_task(get_inference_and_prediction(lookup_name, news_items, profile))
@@ -1597,6 +1668,9 @@ async def config_status(request: Request):
     _apply_runtime_api_keys(
         request.headers.get("X-SerpAPI-Key"),
         request.headers.get("X-Tavily-API-Key"),
+        request.headers.get("X-Qwen-API-Key"),
+        request.headers.get("X-DeepSeek-API-Key"),
+        request.headers.get("X-LLM-Provider"),
     )
     serpapi_configured = _has_configured_key(
         ["SERPAPI_API_KEY", "SERP_API_KEY"],
@@ -1610,9 +1684,24 @@ async def config_status(request: Request):
         request,
         "X-Tavily-API-Key",
     )
+    qwen_api_configured = _has_configured_key(
+        ["QWEN_API_KEY", "DASHSCOPE_API_KEY"],
+        "qwen_api_key",
+        request,
+        "X-Qwen-API-Key",
+    )
+    deepseek_configured = _has_configured_key(
+        ["DEEPSEEK_API_KEY"],
+        "deepseek_api_key",
+        request,
+        "X-DeepSeek-API-Key",
+    )
     return {
         "serpapi_configured": serpapi_configured,
         "tavily_configured": tavily_configured,
+        "qwen_api_configured": qwen_api_configured,
+        "deepseek_configured": deepseek_configured,
+        "llm_provider": _current_llm_provider(),
         "demo_mode_available": True,
         "external_search_enabled": serpapi_configured or tavily_configured,
         "external_crawl_enabled": (
@@ -1627,10 +1716,13 @@ async def config_status(request: Request):
 @app.post("/api/config/keys")
 async def save_config_keys(payload: ApiKeyConfig):
     """黑客松本地运行使用：只保存配置状态到内存，重启后丢失。"""
-    status = _apply_runtime_api_keys(payload.serpapi_api_key, payload.tavily_api_key)
+    status = _apply_runtime_api_keys(payload.serpapi_api_key, payload.tavily_api_key, payload.qwen_api_key, payload.deepseek_api_key, payload.llm_provider)
     return {
         "serpapi_configured": status["serpapi_configured"],
         "tavily_configured": status["tavily_configured"],
+        "qwen_api_configured": status["qwen_api_configured"],
+        "deepseek_configured": status["deepseek_configured"],
+        "llm_provider": status["llm_provider"],
         "demo_mode_available": True,
         "external_search_enabled": status["serpapi_configured"] or status["tavily_configured"],
         "external_crawl_enabled": status["serpapi_configured"] or status["tavily_configured"],

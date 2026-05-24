@@ -11,6 +11,7 @@ import copy
 import json
 import os
 import re
+import requests
 import warnings
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -446,18 +447,168 @@ class QwenNarrativeFormatter:
             return {"used_qwen": False, "error": str(exc), "patch": {}}
 
 
+
+
+def _normalize_llm_provider(raw: Any) -> str:
+    provider = str(raw or os.getenv("LLM_PROVIDER", "auto")).strip().lower().replace("-", "_")
+    aliases = {
+        "qwen": "qwen_api",
+        "dashscope": "qwen_api",
+        "aliyun_qwen": "qwen_api",
+        "local": "local_qwen",
+        "localqwen": "local_qwen",
+        "deep_seek": "deepseek",
+        "none": "rules",
+        "fallback": "rules",
+    }
+    provider = aliases.get(provider, provider)
+    return provider if provider in {"auto", "local_qwen", "qwen_api", "deepseek", "rules"} else "auto"
+
+
+class ApiNarrativeFormatter:
+    """OpenAI-compatible API narrative formatter for Qwen API and DeepSeek."""
+
+    def __init__(self, fallback_formatter: QwenNarrativeFormatter) -> None:
+        self.fallback_formatter = fallback_formatter
+        self.timeout_seconds = max(8.0, _safe_float(os.getenv("LLM_API_TIMEOUT_SECONDS", "45"), 45.0))
+        self.max_tokens = int(_safe_float(os.getenv("LLM_API_MAX_TOKENS", "900"), 900))
+        self.temperature = _safe_float(os.getenv("LLM_API_TEMPERATURE", "0.25"), 0.25)
+
+    def _settings(self, provider: str) -> Dict[str, str]:
+        if provider == "deepseek":
+            return {
+                "provider": "deepseek",
+                "api_key": (os.getenv("DEEPSEEK_API_KEY") or "").strip(),
+                "base_url": (os.getenv("DEEPSEEK_API_BASE") or "https://api.deepseek.com").rstrip("/"),
+                "model": os.getenv("DEEPSEEK_MODEL", "deepseek-chat"),
+            }
+        return {
+            "provider": "qwen_api",
+            "api_key": (os.getenv("QWEN_API_KEY") or os.getenv("DASHSCOPE_API_KEY") or "").strip(),
+            "base_url": (os.getenv("QWEN_API_BASE") or "https://dashscope.aliyuncs.com/compatible-mode/v1").rstrip("/"),
+            "model": os.getenv("QWEN_API_MODEL", "qwen-plus"),
+        }
+
+    def _call_api(self, provider: str, prompt: str) -> str:
+        settings = self._settings(provider)
+        api_key = settings["api_key"]
+        if not api_key:
+            raise RuntimeError(f"{provider}_api_key_missing")
+        response = requests.post(
+            f"{settings['base_url']}/chat/completions",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={
+                "model": settings["model"],
+                "messages": [
+                    {"role": "system", "content": "你是专业金融风控分析师。只基于输入数据输出审慎、可执行、中文的风控报告，不构成投资建议。"},
+                    {"role": "user", "content": prompt},
+                ],
+                "temperature": self.temperature,
+                "max_tokens": self.max_tokens,
+            },
+            timeout=self.timeout_seconds,
+        )
+        response.raise_for_status()
+        data = response.json()
+        choices = data.get("choices") or []
+        if not choices:
+            raise RuntimeError("empty_llm_choices")
+        message = choices[0].get("message") or {}
+        text = str(message.get("content") or choices[0].get("text") or "").strip()
+        if not text:
+            raise RuntimeError("empty_llm_content")
+        return text
+
+    async def format(
+        self,
+        provider: str,
+        stock_name: str,
+        assessment: Dict[str, Any],
+        news_items: List[Dict[str, Any]],
+        sklearn_signal: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        prompt = self.fallback_formatter._build_prompt(stock_name, assessment, news_items, sklearn_signal)
+        try:
+            text = await asyncio.wait_for(asyncio.to_thread(self._call_api, provider, prompt), timeout=self.timeout_seconds + 3.0)
+            return {
+                "provider": provider,
+                "used_llm": True,
+                "used_qwen": provider == "qwen_api",
+                "used_qwen_api": provider == "qwen_api",
+                "used_deepseek": provider == "deepseek",
+                "error": None,
+                "text": text,
+            }
+        except Exception as exc:
+            return {
+                "provider": provider,
+                "used_llm": False,
+                "used_qwen": False,
+                "used_qwen_api": False,
+                "used_deepseek": False,
+                "error": str(exc),
+                "text": self.fallback_formatter._fallback(stock_name, assessment, sklearn_signal),
+            }
+
 class RiskOutputEnhancer:
     """Orchestrates small-model fusion + narrative output."""
 
     def __init__(self) -> None:
         self.risk_sklearn = RiskSklearnAdapter()
         self.qwen_formatter = QwenNarrativeFormatter()
+        self.api_formatter = ApiNarrativeFormatter(self.qwen_formatter)
         # 默认关闭“小模型改决策”，仅保留旁路参考分。
         self.sklearn_decision_override = (
             os.getenv("ENABLE_RISK_SKLEARN_DECISION_OVERRIDE", "false").strip().lower()
             in {"1", "true", "yes", "on"}
         )
 
+    def _provider_sequence(self) -> List[str]:
+        provider = _normalize_llm_provider(os.getenv("LLM_PROVIDER", "auto"))
+        if provider == "rules":
+            return []
+        if provider != "auto":
+            return [provider]
+        sequence: List[str] = []
+        if os.getenv("QWEN_API_KEY") or os.getenv("DASHSCOPE_API_KEY"):
+            sequence.append("qwen_api")
+        if os.getenv("DEEPSEEK_API_KEY"):
+            sequence.append("deepseek")
+        sequence.append("local_qwen")
+        return sequence
+
+    async def _format_narrative(
+        self,
+        stock_name: str,
+        assessment: Dict[str, Any],
+        news_items: List[Dict[str, Any]],
+        sklearn_signal: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        errors: Dict[str, Any] = {}
+        for provider in self._provider_sequence():
+            if provider in {"qwen_api", "deepseek"}:
+                result = await self.api_formatter.format(provider, stock_name, assessment, news_items, sklearn_signal)
+            elif provider == "local_qwen":
+                result = await self.qwen_formatter.format(stock_name, assessment, news_items, sklearn_signal)
+                result["provider"] = "local_qwen"
+                result["used_llm"] = bool(result.get("used_qwen"))
+                result["used_qwen_api"] = False
+                result["used_deepseek"] = False
+            else:
+                continue
+            if result.get("used_llm") or result.get("used_qwen"):
+                return result
+            if result.get("error"):
+                errors[provider] = result.get("error")
+        return {
+            "provider": "rules",
+            "used_llm": False,
+            "used_qwen": False,
+            "used_qwen_api": False,
+            "used_deepseek": False,
+            "error": errors or "rules_fallback",
+            "text": self.qwen_formatter._fallback(stock_name, assessment, sklearn_signal),
+        }
     async def coordinate_chain(
         self,
         stock_name: str,
@@ -581,7 +732,7 @@ class RiskOutputEnhancer:
                 fused_score = shadow_score
                 applied = True
 
-        narrative = await self.qwen_formatter.format(stock_name, assessment, news_items, sklearn_signal)
+        narrative = await self._format_narrative(stock_name, assessment, news_items, sklearn_signal)
 
         thresholds = ((assessment.get("dynamic_thresholds") or {}).get("thresholds") or [36.0, 56.0, 74.0])[:3]
         if len(thresholds) < 3:

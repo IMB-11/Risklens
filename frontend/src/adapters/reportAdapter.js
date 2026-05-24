@@ -2,9 +2,28 @@ import { demoRiskReport } from '../mock/reportMock'
 import { normalizeRiskLabel, normalizeRiskLevel, riskLabel } from './stockAdapter'
 
 const listFrom = (value, fallback = []) => {
-  if (Array.isArray(value)) return value.map((item) => (typeof item === 'string' ? item : item.title || item.message || JSON.stringify(item)))
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => (typeof item === 'string' ? item : item?.title || item?.message || item?.description || JSON.stringify(item)))
+      .filter(Boolean)
+  }
   if (typeof value === 'string' && value.trim()) return [value]
   return fallback
+}
+
+const providerLabel = (meta = {}) => {
+  const byName = {
+    qwen_api: 'Qwen API / FinanceLM',
+    local_qwen: '本地 Qwen / FinanceLM',
+    deepseek: 'DeepSeek / FinanceLM',
+    rules: '规则增强报告',
+    auto: '自动选择'
+  }
+  if (meta.provider && byName[meta.provider]) return byName[meta.provider]
+  if (meta.used_deepseek) return byName.deepseek
+  if (meta.used_qwen_api) return byName.qwen_api
+  if (meta.used_qwen) return byName.local_qwen
+  return byName.rules
 }
 
 export const adaptReport = (payload = {}, stockName = 'NVDA', riskLevel = 'moderate') => {
@@ -14,6 +33,7 @@ export const adaptReport = (payload = {}, stockName = 'NVDA', riskLevel = 'moder
   const score = Number(payload.risk_score_fused ?? payload.risk_score ?? fusion.risk_score_fused ?? demoRiskReport.summary.riskScore)
   const level = normalizeRiskLevel(payload.risk_level_fused ?? payload.risk_level, score)
   const narrative = payload.narrative || ''
+  const narrativeMeta = payload.narrative_meta || {}
   const drivers = listFrom(payload.top_risk_drivers, demoRiskReport.sections[1].content)
   const actions = listFrom(payload.control_actions?.next_steps || payload.control_actions?.actions, demoRiskReport.sections[3].content)
   const quantile = payload.quantile_risk || {}
@@ -38,14 +58,15 @@ export const adaptReport = (payload = {}, stockName = 'NVDA', riskLevel = 'moder
       oneSentenceConclusion: payload.one_sentence_conclusion || drivers[0] || demoRiskReport.summary.oneSentenceConclusion
     },
     llm: {
-      provider: payload.narrative_meta?.used_qwen ? 'Qwen / FinanceLM' : '规则增强报告',
-      usedQwen: Boolean(payload.narrative_meta?.used_qwen),
+      provider: providerLabel(narrativeMeta),
+      usedQwen: Boolean(narrativeMeta.used_qwen || narrativeMeta.used_qwen_api),
+      usedDeepSeek: Boolean(narrativeMeta.used_deepseek),
       status: narrative ? 'generated' : 'structured',
       text: narrative || fallbackText,
-      confidence: Number(payload.narrative_meta?.confidence || payload.confidence || 0.72)
+      confidence: Number(narrativeMeta.confidence || payload.confidence || 0.72)
     },
     sections: [
-      { title: '核心结论', type: 'conclusion', content: listFrom(payload.narrative_meta?.conclusions, [fallbackText]) },
+      { title: '核心结论', type: 'conclusion', content: listFrom(narrativeMeta.conclusions, [fallbackText]) },
       { title: '主要风险驱动', type: 'risk_drivers', content: drivers },
       { title: '舆情与事件影响', type: 'sentiment', content: listFrom(payload.news_snapshot?.summary, ['外部新闻与事件数据已纳入风险评分。']) },
       { title: 'VaR / CVaR 解读', type: 'quantile', content: [`VaR 95%：${quantile.var_1d ?? demoRiskReport.metrics.var95}`, `CVaR 95%：${quantile.cvar_1d ?? demoRiskReport.metrics.cvar95}`] },

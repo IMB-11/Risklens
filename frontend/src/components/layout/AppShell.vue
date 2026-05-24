@@ -26,7 +26,7 @@
 </template>
 
 <script setup>
-import { reactive, watch } from 'vue'
+import { onBeforeUnmount, onMounted, reactive, watch } from 'vue'
 import Sidebar from './Sidebar.vue'
 import Topbar from './Topbar.vue'
 import { isDemoModeEnabled, setDemoMode } from '../../services/configService'
@@ -40,6 +40,18 @@ const state = reactive({
 })
 
 watch(() => state.demoMode, (value) => setDemoMode(value))
+
+const syncDemoMode = (event) => {
+  state.demoMode = Boolean(event.detail)
+}
+
+onMounted(() => {
+  window.addEventListener('demo-mode-change', syncDemoMode)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('demo-mode-change', syncDemoMode)
+})
 
 const runAnalyze = () => {
   state.stockName = (state.stockName || 'NVDA').trim().toUpperCase()

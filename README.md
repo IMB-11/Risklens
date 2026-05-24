@@ -44,6 +44,15 @@ SERPAPI_API_KEY=你的 SerpAPI Key
 SERP_API_KEY=你的 SerpAPI Key
 TAVILY_API_KEY=你的 Tavily API Key
 RISK_ENABLE_EXTERNAL_CRAWL=false
+
+# LLM 报告生成：auto | local_qwen | qwen_api | deepseek | rules
+LLM_PROVIDER=auto
+QWEN_API_KEY=你的 Qwen/DashScope Key
+QWEN_API_BASE=https://dashscope.aliyuncs.com/compatible-mode/v1
+QWEN_API_MODEL=qwen-plus
+DEEPSEEK_API_KEY=你的 DeepSeek Key
+DEEPSEEK_API_BASE=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-chat
 ```
 
 如果不配置 Key：
@@ -55,7 +64,7 @@ RISK_ENABLE_EXTERNAL_CRAWL=false
 
 `RISK_ENABLE_EXTERNAL_CRAWL=false` 是推荐的路演默认值：后端仍提供真实健康检查、风控、组合和报告接口，但外部新闻抓取会降级，避免免费源或本机爬虫依赖导致现场不稳定。需要真实联网抓取时再改为 `true`。
 
-前端的“系统状态”页也预留了 API Key 输入框。黑客松本地演示阶段会保存到浏览器 localStorage，并通过请求 Header 发送给后端；生产环境不建议这样保存敏感 Key。
+前端的“系统状态”页预留了 SerpAPI、Tavily、Qwen API、DeepSeek API 和 LLM Provider 配置。黑客松本地演示阶段会保存到浏览器 localStorage，并通过请求 Header 发送给后端；生产环境不建议这样保存敏感 Key。若选择“本地 Qwen”，请在后端 `.env` 配置 `QWEN_MODEL_PATH` 并保证模型文件存在；若选择 Qwen API 或 DeepSeek API，则后端会优先调用对应 OpenAI-compatible `/chat/completions` 接口生成报告。
 
 ## 后端启动
 
@@ -114,7 +123,7 @@ start_frontend.bat
 4. 查看风险评分、AI 投资建议、未来 7 天预测、VaR/CVaR、舆情、新闻与告警。
 5. 切换到“组合风控”查看默认组合 `NVDA/AAPL/MSFT/TSLA`。
 6. 切换到“AI 风控报告”查看 LLM/Qwen/FinanceLM 风险报告。
-7. 切换到“系统状态”填写自己的 SerpAPI / Tavily API Key。
+7. 切换到“系统状态”填写自己的 SerpAPI / Tavily / Qwen API / DeepSeek API Key，并选择 LLM Provider。
 
 ## 真实 API 与演示模式
 
@@ -130,7 +139,7 @@ UI 中不会显示 mock/fake/假数据等字样，只会显示“演示模式”
 GET /api/risk/report/{stock_name}?risk_level=moderate&limit=20
 ```
 
-后端返回 `narrative` 时显示 LLM 正文；若 Qwen/LLM 不可用或正文为空，前端会根据风险评分、VaR/CVaR、模型融合、风险驱动和风控动作自动拼接结构化报告。
+后端返回 `narrative` 时显示 LLM 正文；`LLM_PROVIDER=auto` 会优先使用已配置的 Qwen API，其次 DeepSeek API，再尝试本地 Qwen，最后降级到规则增强报告。若 LLM 不可用或正文为空，前端会根据风险评分、VaR/CVaR、模型融合、风险驱动和风控动作自动拼接结构化报告。
 
 报告页支持：
 
